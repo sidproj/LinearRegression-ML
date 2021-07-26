@@ -1,0 +1,261 @@
+<html>
+<head>
+	<title>Linear Rigression</title>
+	<style>
+		.container{
+			display:flex;
+			flex-direction: column;
+			align-items: center;
+			font-family: 'Courier New', Courier, monospace;
+			color:rgba(54, 162, 235, 1);
+		}
+		#height{
+			width:200px;
+			height:30px;
+			font-size: larger;
+			outline: none;
+			margin-right: 10px;
+			border:solid 1px;
+			border-color: rgba(255, 99, 132, 1);
+			caret-color:rgba(255, 99, 132, 0.7) ;
+			color:rgba(255, 99, 132, 1);
+			padding:5px;
+		}
+		.test{
+			background-color:rgba(99,255, 132, 0.8) ;
+		}
+		.train{
+			background-color:rgba(255, 99, 132, 0.8);
+		}
+		button{
+			width:100px;
+			height:30px;
+			font-size: larger;
+			outline: none;
+			background-color:rgba(99,255, 132, 0.8) ;
+			border: none;
+			color:white;
+		}
+		button.test:hover{
+			background-color:rgba(99,255, 132, 0.6) ;
+		}
+		button.train:hover{
+			background-color:rgba(255, 99, 132, 0.6) ;
+		}
+		::placeholder{
+			color:rgba(255, 99, 132, 0.5);
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<canvas id="can" width=700 height=300></canvas>
+		<h3 id="r2"></h3>
+		<div>
+			<button onclick='handleTrain()' class="train">Train</button><br><br>
+			<input type="number" placeholder="Enter testing data"  id="height"><button onclick='handleTest()' class="test">Test</button>
+		</div>
+	</div>
+</body>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.4.1/dist/chart.min.js"></script>
+<script>
+
+    let	fileData=null;
+	let parsedData=null;
+	let plotedChart = null;
+	let M = null;
+	let C = null;
+	
+	window.onload = async () =>{
+		
+		document.getElementById("height").addEventListener("keyup",(event)=>{
+			if (event.keyCode == 13 && event.target.value.length>0){
+				handleTest();
+			}
+		});
+
+		fileData = await loadFile('HeightWeight.csv');
+		parsedData = await parseDataFromFile(fileData);
+	}
+	
+	const loadFile = async (fileName) =>{
+		let file = await fetch(fileName);
+		let data = await file.text();
+		return data
+	}
+
+	const parseDataFromFile = async (dataset) => {
+		const parsedDataset = {};
+		const heads = dataset.split('\n')[0].split(',');
+
+		for(let i=0;i<heads.length;i++){
+			parsedDataset[heads[i]]=[];
+		}
+
+		for(let i=1;i<dataset.split('\n').length;i++){
+
+			for(let j=0;j<Object.keys(parsedDataset).length;j++){
+				parsedDataset[ heads[ j ] ].push( dataset.split('\n')[i].split(',')[j].replace(/\r?\n|\r/g, "")/1 );
+		 		//console.log(dataset.split('\n')[i].split(',')[j]);
+			
+			}
+		
+		}
+		return parsedDataset;
+		//console.log(parsedDataset);
+	}
+
+	const findMean = (X) => {
+		let sum=0;
+
+		X.map( (x) => {
+			sum+=x;
+		});
+		
+		const mean = sum/X.length;
+
+		return mean;
+	}
+
+	const findSlope = async (X,Y) => {
+		let meanX = findMean(X);
+		let meanY = findMean(Y);
+
+		let upper=0;
+		let lower=0;
+		for(let i=0;i<X.length;i++){
+			upper += ( X[i] - meanX ) * ( Y[i] - meanY );
+			lower += ( X[i] - meanX ) ** 2 ;
+		}
+		const m = upper/lower;
+
+		return m;
+	}
+
+	const findConstant = async  (X,Y,M) => {
+		let meanX = findMean(X);
+		let meanY = findMean(Y);
+		let C = meanY - ( M * meanX );
+		return C;
+	}
+
+	const findLinearRegression = async  (M,C,X) => {
+		reg=[];
+		for(let i=0;i<X.length;i++){
+			reg.push( M*X[i] + C );
+		}
+
+		return reg;
+	}
+
+	const findRSquared = (Y,pY) => {
+		let SigmaY=0;
+		let SigmapY=0;
+		let meanY = findMean(Y);
+
+		for(let i=0;i<Y.length;i++){
+			SigmaY += ( Y[i] - meanY)**2;
+			SigmapY += ( pY[i] - meanY)**2;
+		}
+
+		return SigmapY/SigmaY;
+	}
+
+	const plotRegression =  async (X,Y,regression) => {
+		let canvasA = document.getElementById("can");
+		var myChart = new Chart(canvasA, {
+			data: {
+				labels: X ,
+				radius:10,
+				datasets: [
+				{
+					type: 'scatter',
+					label: 'Training data',
+					data: Y ,
+					pointRadius: 2 ,
+					backgroundColor: 'rgba(255, 99, 132, 0.9)',
+					borderColor: 'rgba(255, 99, 132, 1)',
+					borderWidth: 1
+				},
+				{
+					type: 'line',
+					label: 'regression line',
+					data: regression ,
+					pointRadius:3,
+					backgroundColor: 'rgba(54, 162, 235, 0.9)',
+					borderColor: 'rgba(54, 162, 235, 1)',
+					borderWidth: 1
+				},
+				{
+					type:"scatter",
+					label:"Testing data" , 
+					data:[],
+					pointRadius: 10,
+					backgroundColor: 'rgba(99,255, 132, 0.9)',
+					borderColor: 'rgba(99,255, 132, 1)',
+					borderWidth: 1
+				}],
+			},
+			options: {
+				scales: {
+					y: {
+						beginAtZero: false,
+						beginAt:20,
+						label:"try",
+					},
+				}
+			}
+		});
+
+		for(let i=0;i<myChart.data.labels.length;i++){
+			myChart.data.datasets[2].data.push(null);	
+		}
+		document.getElementById("r2").innerHTML = "R <sup>2</sup> = " + findRSquared(Y,regression);
+		//console.log(myChart.data.labels)
+		return myChart;
+	}
+
+	
+	const testHeight = (chart,height,M,C) => {
+		
+		let newWeight = M * height + C;
+		
+		chart.data.labels.push(height);
+		chart.data.datasets[2].data.push(newWeight);
+		chart.update();
+	}
+
+	
+	//let newHeight = prompt("Enter new height: ")/1;
+	const handleTest = () => {
+		
+		let newHeight = document.getElementById("height").value/1;
+		document.getElementById("height").value="";
+
+		testHeight(plotedChart,newHeight,M,C);
+	}
+
+	//calling all the functions and passing data from datasets
+
+
+	
+
+	const handleTrain = async() => {
+			
+		let datasetX = parsedData["Height(Inches)"];
+		let datasetY = parsedData["Weight(Pounds)\r"];
+		
+		
+		M = await findSlope(datasetX,datasetY);
+		C = await findConstant(datasetX,datasetY,M);
+		
+		let reg_line = await  findLinearRegression(M,C,datasetX);
+
+		//ploting reggression line
+		plotedChart = await plotRegression(datasetX,datasetY,reg_line);
+	}
+
+
+</script>
+</html>
